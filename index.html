@@ -7,13 +7,29 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         #map { 
-            height: 600px; 
+            height: 400px; 
             width: 100%;
+            margin-bottom: 20px;
+        }
+        #list {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .beer-item {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+        }
+        .beer-item:hover {
+            background-color: #f5f5f5;
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    <div id="list"></div>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         var map = L.map('map').setView([59.9139, 10.7522], 13);
@@ -21,6 +37,14 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
+
+        // Beer icon
+        var beerIcon = L.icon({
+            iconUrl: 'https://www.vhv.rs/dpng/d/455-4551822_beer-glass-png-image-free-download-searchpng-beer.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
 
         fetch('https://iwosxtuvmxlvuqknhvgu.supabase.co/rest/v1/beer_prices_location', {
             headers: {
@@ -30,17 +54,58 @@
         })
         .then(response => response.json())
         .then(spots => {
+            // Clear existing list
+            const listDiv = document.getElementById('list');
+            listDiv.innerHTML = '';
+
+            // Sort spots by name
+            spots.sort((a, b) => a.name.localeCompare(b.name));
+
             spots.forEach(spot => {
+                // Add marker to map if coordinates exist
                 if (spot.lat && spot.long) {
-                    L.marker([spot.lat, spot.long])
+                    L.marker([spot.lat, spot.long], {icon: beerIcon})
                         .addTo(map)
                         .bindPopup(`<b>${spot.name}</b><br>Price: ${spot.currency} ${spot.price}<br>Beer: ${spot.beerunitname}`);
                 }
+
+                // Add to list below map
+                const listItem = document.createElement('div');
+                listItem.className = 'beer-item';
+                listItem.innerHTML = `
+                    <div>
+                        <strong>${spot.name}</strong><br>
+                        Beer: ${spot.beerunitname}
+                    </div>
+                    <div>
+                        <strong>${spot.currency} ${spot.price}</strong>
+                    </div>
+                `;
+
+                // Add click event to center map on this location
+                if (spot.lat && spot.long) {
+                    listItem.style.cursor = 'pointer';
+                    listItem.onclick = () => {
+                        map.setView([spot.lat, spot.long], 16);
+                    };
+                }
+
+                listDiv.appendChild(listItem);
             });
+
+            // Add count of spots
+            const countDiv = document.createElement('div');
+            countDiv.style.padding = '20px';
+            countDiv.style.textAlign = 'center';
+            countDiv.innerHTML = `<strong>Total locations: ${spots.length}</strong>`;
+            listDiv.insertBefore(countDiv, listDiv.firstChild);
+
+            // Log data to console to help debug
+            console.log('Loaded spots:', spots);
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Failed to load beer spots');
+            document.getElementById('list').innerHTML = '<p style="color: red; padding: 20px;">Failed to load beer spots. Please check console for details.</p>';
         });
     </script>
 </body>
